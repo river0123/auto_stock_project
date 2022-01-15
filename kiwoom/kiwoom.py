@@ -10,7 +10,7 @@ class Kiwoom(QAxWidget):
         ##### eventloop 모음
         self.login_event_loop = None
         self.detail_account_info_event_loop = None
-        self.detail_account_info_event_loop_2 = None
+        self.detail_account_info_event_loop_2 = QEventLoop()
         ##########################
 
         ##### 변수 모음
@@ -71,14 +71,13 @@ class Kiwoom(QAxWidget):
         self.detail_account_info_event_loop.exec_()
 
     def detail_account_mystock(self, sPrevNext="0"):
-        print("계좌평가 잔고내역 요청")
+        print("계좌평가 잔고내역 요청하기 연속조회 %s" % sPrevNext)
         self.dynamicCall("SetInputValue(String, String)", "계좌번호", self.account_num)
         self.dynamicCall("SetInputValue(String, String)", "비밀번호", "0000")
         self.dynamicCall("SetInputValue(String, String)", "비밀번호입력매체구분", "00")
         self.dynamicCall("SetInputValue(String, String)", "조회구분", "2")
         self.dynamicCall("CommRqData(String, String, int, String)", "계좌평가 잔고내역 요청", "opw00018", sPrevNext, "2000")
 
-        self.detail_account_info_event_loop_2 = QEventLoop()
         self.detail_account_info_event_loop_2.exec_()
 
     def trdata_slot(self, sScrNo, sRQName, sTrCode, sRecordName, sPrevNext):
@@ -149,6 +148,7 @@ class Kiwoom(QAxWidget):
 
                 cnt += 1
             print("계좌에 가지고 있는 종목 %s" % self.account_stock_dict)
+            print("계좌 보유 종목 카운트 %s" % cnt)
 
             if sPrevNext == "2":
                 self.detail_account_mystock(sPrevNext="2")
