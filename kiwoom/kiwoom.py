@@ -14,6 +14,7 @@ class Kiwoom(QAxWidget):
 
         ##### 스크린번호 모음
         self.screen_my_info = "2000"
+        self.screen_calculation_stock = "4000"
         ######################
 
 
@@ -59,7 +60,7 @@ class Kiwoom(QAxWidget):
         self.login_event_loop.exit()
 
     def get_account_info(self):
-        account_list = self.dynamicCall("GetLoginInfo(String", "ACCNO")
+        account_list = self.dynamicCall("GetLoginInfo(QString", "ACCNO")
 
         self.account_num = account_list.split(';')[1] # 가진 계좌번호 중 두번째 모의투자 위탁 계좌번호
         print("나의 보유 위탁 계좌번호 %s " % self.account_num) # 7004425431, 8015791811
@@ -107,23 +108,23 @@ class Kiwoom(QAxWidget):
         '''
 
         if sRQName == '예수금 상세현황 요청':
-            deposit = self.dynamicCall("GetCommData(String, String, int, String)", sTrCode, sRQName, 0, "예수금")
+            deposit = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "예수금")
             print("예수금 %s원" % int(deposit))
 
             self.use_money = int(deposit) * self.use_money_percent
             self.use_money = self.use_money / 4
 
 
-            ok_deposit = self.dynamicCall("GetCommData(String, String, int, String)", sTrCode, sRQName, 0, "출금가능금액")
+            ok_deposit = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "출금가능금액")
             print("출금가능금액 %s원" % int(ok_deposit))
 
             self.detail_account_info_event_loop.exit()
 
         if sRQName == '계좌평가 잔고내역 요청':
-            total_buy_money = self.dynamicCall("GetCommData(String, String, int, String)", sTrCode, sRQName, 0, "총매입금액")
+            total_buy_money = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총매입금액")
             print("총 매입금액 %s원" % int(total_buy_money))
 
-            total_profit_loss_rate = self.dynamicCall("GetCommData(String, String, int, String)", sTrCode, sRQName, 0, "총수익률(%)")
+            total_profit_loss_rate = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "총수익률(%)")
             print("총 수익률(%%) : %s" % float(total_profit_loss_rate))
 
             rows = self.dynamicCall("GetRepeatCnt(QString, Qstring)", sTrCode, sRQName)
@@ -216,3 +217,11 @@ class Kiwoom(QAxWidget):
 
             self.detail_account_info_event_loop.exit()
 
+    def day_kiwoom_db(self, code=None, date=None, sPrevNext="0"):
+        self.dynamicCall("SetInputValue(QString, QString)", "종목코드", code)
+        self.dynamicCall("SetInputValue(QString, QString)", "수정주가구분", "1")
+
+        if date != None:
+            self.dynamicCall("SetInputValue(QString, QString)", "기준일자", date)
+
+        self.dynamicCall("CommRqData(QString, QString, int, QString)", "주식 일봉차트 조회", "opt10081", sPrevNext, self.screen_calculation_stock) # Tr서버로 전송 - 트랜잭션
