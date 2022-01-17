@@ -1,13 +1,18 @@
+import os
+
 from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
 from config.errCode import *
 from PyQt5.QtTest import *
+from config.kiwoomType import *
 
 
 class Kiwoom(QAxWidget):
     def __init__(self):
         super().__init__()
         print("kiwoom클래스입니다")
+
+        self.realType = RealType()
 
         ##### eventloop 모음
         self.login_event_loop = None
@@ -18,6 +23,9 @@ class Kiwoom(QAxWidget):
         ##### 스크린번호 모음
         self.screen_my_info = "2000"
         self.screen_calculation_stock = "4000"
+        self.screen_real_stock = "5000" # 종목별로 할당할 스크린번호
+        self.screen_meme_stock = "6000" # 종목별로 할당할 주문용 스크린번호
+        self.screen_start_stop_real = "1000"
         ######################
 
 
@@ -25,6 +33,7 @@ class Kiwoom(QAxWidget):
         self.account_num = None
         self.account_stock_dict = {}
         self.not_account_stock_dict = {}
+        self.portfolio_stock_dict = {}
         ##########################
 
         ##### 종목 분석용
@@ -36,9 +45,9 @@ class Kiwoom(QAxWidget):
         self.use_money_percent = 0.5
         ##########################
 
-
-        self.get_ocn_instance()
+        self.get_ocx_instance()
         self.event_slots()
+        self.real_event_slots()
 
         self.signal_login_commConnect()
         self.get_account_info()
@@ -50,12 +59,28 @@ class Kiwoom(QAxWidget):
 
         self.calculator_fnc() # 종목 분석용, 임시용으로 실행행
 
-    def get_ocn_instance(self):
+        self.read_code() # 저장된 종목들을 불러온다.
+        self.screen_number_setting() # 스크린번호를 할당
+
+        self.dynamicCall("SetRealReg(QString, QString, QString, QString)", self.screen_start_stop_real, '', self.realType.REALTYPE['장시작시간']['장운영구분'], "0")
+
+        for code in self.portfolio_stock_dict.keys():
+            screen_num = self.portfolio_stock_dict[code]['스크린번호']
+            fids = self.realType.REALTYPE['주식체결']['체결시간']
+            self.dynamicCall("SetRealReg(QString, QString, QString, QString)", screen_num, code, fids, "1")
+            print("실시간 등록 코드 : %s, 스크린번호: %s, fid번호: %s" % (code, screen_num, fids))
+
+
+    def get_ocx_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
 
     def event_slots(self):
         self.OnEventConnect.connect(self.login_slot)
         self.OnReceiveTrData.connect(self.trdata_slot)
+
+    def real_event_slots(self):
+        self.OnReceiveRealData.connect(self.realdata_slot)
+
 
     def signal_login_commConnect(self):
         self.dynamicCall("CommConnect()")
@@ -285,7 +310,7 @@ class Kiwoom(QAxWidget):
                     bottom_stock_price = False
                     check_price = None
                     if int(self.calcul_data[0][7]) <= moving_average_price and moving_average_price <= int(self.calcul_data[0][6]):
-                        print("오늘 주가 120일 이평선에 걸쳐있는 것 확인")
+                        print("오늘 주가 120일 이평선에 걸쳐있는 것 확인 %s %s" % (code, code_nm))
                         bottom_stock_price = True
                         check_price = int(self.calcul_data[0][6])
 
@@ -315,7 +340,7 @@ class Kiwoom(QAxWidget):
                                 break
 
                             elif int(self.calcul_data[idx][7]) > moving_average_price_prev and idx > 20:
-                                print("120일 이평선 위에 있는 일봉 확인됨")
+                                print("120일 이평선 위에 있는 일봉 확인됨 %s %s" % (code, code_nm))
                                 price_top_moving = True
                                 prev_price = int(self.calcul_data[idx][7])
                                 break
@@ -358,7 +383,7 @@ class Kiwoom(QAxWidget):
         종목 분석 실행용 함수
         :return:
         '''
-        code_list = self.get_code_list_by_market("10")
+        code_list = self.get_code_list_by_market("0")
         print("코스닥 갯수 %s" % len(code_list))
 
         for idx, code in enumerate(code_list):
@@ -381,3 +406,90 @@ class Kiwoom(QAxWidget):
         self.dynamicCall("CommRqData(QString, QString, int, QString)", "주식 일봉차트 조회", "opt10081", sPrevNext, self.screen_calculation_stock) # Tr서버로 전송 - 트랜잭션
 
         self.calculator_event_loop.exec_()
+
+    # 매수법칙 계산 들어가면 됨
+
+    def read_code(self):
+        if os.path.exists("files/condition_stock_txt"): # == True:
+            f = open("files/condition_stock.txt", "r", encoding="utf8")
+
+            lines = f.readlines()
+            for line in lines:
+                if line != "":
+                    ls = line.split("\t") # ["230923", "종목명", "현재가\n"]
+                    # print(ls)
+                    stock_code = ls[0]
+                    stock_name = ls[1]
+                    stock_price = int(ls[2].split("\n")[0]) # ["123454", ""]
+                    stock_price = abs(stock_price)
+
+                    self.portfolio_stock_dict.update({stock_code:{"종목명" : stock_name, "현재가":stock_price}})
+                    # {"209876":{"종목명" : "삼성", "현재가" :"2000"}, "123453" : {"종목명": "LG", "현재가":"1234"}}
+
+            f.close()
+            print(self.portfolio_stock_dict)
+
+    def screen_number_setting(self):
+
+        screen_overwrite = []
+        #계좌평가잔고내역에 있는 종목들
+        for code in self.account_stock_dict.keys():
+            if code not in screen_overwrite:
+                screen_overwrite.append(code)
+
+        # 미체결에 있는 종목들
+        for order_number in self.not_account_stock_dict.keys():
+            code = self.not_account_stock_dict[order_number]['종목코드']
+
+            if code not in screen_overwrite:
+                screen_overwrite.append(code)
+
+        # 포트폴리오에 담겨있는 종목들
+        for code in self.portfolio_stock_dict.keys():
+            if code not in screen_overwrite:
+                screen_overwrite.append(code)
+
+        # 스크린번호 할당
+        cnt = 0
+        for code in screen_overwrite:
+            temp_screen = int(self.screen_real_stock)
+            meme_screen = int(self.screen_meme_stock)
+
+            if (cnt % 50) == 0:
+                temp_screen += 1 # "5000" -> "5001"
+                self.screen_real_stock = str(temp_screen)
+
+            if (cnt % 50) == 0:
+                meme_screen += 1
+                self.screen_meme_stock = str(meme_screen)
+
+            if code in self.portfolio_stock_dict.keys():
+                self.portfolio_stock_dictp[code].update({"스크린번호" : str(self.screen_real_stock)})
+                self.portfolio_stock_dictp[code].update({"주문용 스크린번호": str(self.screen_meme_stock)})
+
+            elif code not in self.portfolio_stock_dict.keys():
+                self.portfolio_stock_dict.update({code: {"스크린번호": str(self.screen_real_stock), "주문용 스크린번호" : str(self.screen_meme_stock)}})
+
+            cnt += 1
+        print(self.portfolio_stock_dict)
+
+    def realdata_slot(self, sCode, sRealType, sRealData):
+
+        if sRealType == "장시작시간":
+            fid = self.realType.REALTYPE[sRealType]['장운영구분']
+            value = self.dynamicCall("GetCommRealData(QString, int", sCode, fid)
+
+            if value == "0":
+                print("장 시작 전")
+
+            elif value == "3":
+                print("장 시작")
+
+            elif value == "2":
+                print("장 종료, 동시호가로 넘어감")
+
+            elif value == "4":
+                print("3시 30분 장 종료")
+
+        elif sRealType == '주식체결':
+            print(sCode)
