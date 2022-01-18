@@ -70,7 +70,6 @@ class Kiwoom(QAxWidget):
             self.dynamicCall("SetRealReg(QString, QString, QString, QString)", screen_num, code, fids, "1")
             print("실시간 등록 코드 : %s, 스크린번호: %s, fid번호: %s" % (code, screen_num, fids))
 
-
     def get_ocx_instance(self):
         self.setControl("KHOPENAPI.KHOpenAPICtrl.1")
 
@@ -80,7 +79,6 @@ class Kiwoom(QAxWidget):
 
     def real_event_slots(self):
         self.OnReceiveRealData.connect(self.realdata_slot)
-
 
     def signal_login_commConnect(self):
         self.dynamicCall("CommConnect()")
@@ -147,7 +145,6 @@ class Kiwoom(QAxWidget):
 
             self.use_money = int(deposit) * self.use_money_percent
             self.use_money = self.use_money / 4
-
 
             ok_deposit = self.dynamicCall("GetCommData(QString, QString, int, QString)", sTrCode, sRQName, 0, "출금가능금액")
             print("출금가능금액 %s원" % int(ok_deposit))
@@ -234,7 +231,6 @@ class Kiwoom(QAxWidget):
                 else:
                     self.not_account_stock_dict[order_no] = {}
 
-
                 nasd = self.not_account_stock_dict[order_no]
 
                 nasd.update({"종목코드" : code})
@@ -310,7 +306,7 @@ class Kiwoom(QAxWidget):
                     bottom_stock_price = False
                     check_price = None
                     if int(self.calcul_data[0][7]) <= moving_average_price and moving_average_price <= int(self.calcul_data[0][6]):
-                        print("오늘 주가 120일 이평선에 걸쳐있는 것 확인 %s %s" % (code, code_nm))
+                        print("오늘 주가 120일 이평선에 걸쳐있는 것 확인")
                         bottom_stock_price = True
                         check_price = int(self.calcul_data[0][6])
 
@@ -340,7 +336,7 @@ class Kiwoom(QAxWidget):
                                 break
 
                             elif int(self.calcul_data[idx][7]) > moving_average_price_prev and idx > 20:
-                                print("120일 이평선 위에 있는 일봉 확인됨 %s %s" % (code, code_nm))
+                                print("120일 이평선 위에 있는 일봉 확인됨")
                                 price_top_moving = True
                                 prev_price = int(self.calcul_data[idx][7])
                                 break
@@ -383,7 +379,7 @@ class Kiwoom(QAxWidget):
         종목 분석 실행용 함수
         :return:
         '''
-        code_list = self.get_code_list_by_market("0")
+        code_list = self.get_code_list_by_market("10")
         print("코스닥 갯수 %s" % len(code_list))
 
         for idx, code in enumerate(code_list):
@@ -391,7 +387,6 @@ class Kiwoom(QAxWidget):
 
             print("%s / %s : KOSDAQ Stock Code : %s 갱신" % (idx+1, len(code_list), code))
             self.day_kiwoom_db(code=code)
-
 
     def day_kiwoom_db(self, code=None, date=None, sPrevNext="0"):
 
@@ -477,7 +472,7 @@ class Kiwoom(QAxWidget):
 
         if sRealType == "장시작시간":
             fid = self.realType.REALTYPE[sRealType]['장운영구분']
-            value = self.dynamicCall("GetCommRealData(QString, int", sCode, fid)
+            value = self.dynamicCall("GetCommRealData(QString, int)", sCode, fid)
 
             if value == "0":
                 print("장 시작 전")
@@ -492,4 +487,50 @@ class Kiwoom(QAxWidget):
                 print("3시 30분 장 종료")
 
         elif sRealType == '주식체결':
-            print(sCode)
+            a = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['체결시간']) #HHMMSS
+            b = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['현재가']) # +(-)2500
+            b = abs(int(b))
+
+            c = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['전일대비'])
+            c = abs(int(c))
+
+            d = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['등락율'])
+            d = float(d)
+
+            e = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['(최우선)매도호가'])
+            e = abs(int(e))
+
+            f = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['(최우선)매수호가'])
+            f = abs(int(f))
+
+            g = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['거래량'])
+            g = abs(int(g))
+
+            h = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['누적거래량'])
+            h = abs(int(h))
+
+            i = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['고가'])
+            i = abs(int(i))
+
+            j = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['시가'])
+            j = abs(int(j))
+
+            k = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['저가'])
+            k = abs(int(k))
+
+            if sCode not in self.portfolio_stock_dict:
+                self.portfolio_stock_dict.update({sCode:{}})
+
+            self.portfolio_stock_dict[sCode].update({"체결시간" : a})
+            self.portfolio_stock_dict[sCode].update({"현재가": b})
+            self.portfolio_stock_dict[sCode].update({"전일대비": c})
+            self.portfolio_stock_dict[sCode].update({"등락율": d})
+            self.portfolio_stock_dict[sCode].update({"(최우선)매도호가": e})
+            self.portfolio_stock_dict[sCode].update({"(최우선)매수호가": f})
+            self.portfolio_stock_dict[sCode].update({"거래량": g})
+            self.portfolio_stock_dict[sCode].update({"누적거래량": h})
+            self.portfolio_stock_dict[sCode].update({"고가": i})
+            self.portfolio_stock_dict[sCode].update({"시가": j})
+            self.portfolio_stock_dict[sCode].update({"저가": k})
+
+            print(self.portfolio_stock_dict[sCode])
