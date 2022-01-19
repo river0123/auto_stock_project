@@ -58,7 +58,7 @@ class Kiwoom(QAxWidget):
         self.detail_account_mystock() # 계좌평가 잔고내역 요청
         self.not_concluded_account() # 미체결 요청
 
-        self.calculator_fnc() # 종목 분석용, 임시용으로 실행행
+        # self.calculator_fnc() # 종목 분석용, 임시용으로 실행행
 
         self.read_code() # 저장된 종목들을 불러온다.
         self.screen_number_setting() # 스크린번호를 할당
@@ -80,6 +80,7 @@ class Kiwoom(QAxWidget):
 
     def real_event_slots(self):
         self.OnReceiveRealData.connect(self.realdata_slot)
+        self.OnReceiveChejanData.connect(self.chejan_slot)
 
     def signal_login_commConnect(self):
         self.dynamicCall("CommConnect()")
@@ -561,3 +562,11 @@ class Kiwoom(QAxWidget):
                 elif not_quantity == 0:
                     del self.not_account_stock_dict[order_num]
 
+    # 주문 -> 접수 -> 확인 -> 체결 -> 잔고 -> 체결 ---
+    def chejan_slot(self, sGubun, nItemCnt, sFIDList):
+
+        if int(sGubun) == "0":
+            print("주문체결")
+
+        elif int(sGubun) == "1":
+            print("잔고")
