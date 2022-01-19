@@ -561,5 +561,3 @@ class Kiwoom(QAxWidget):
                 elif not_quantity == 0:
                     del self.not_account_stock_dict[order_num]
 
-
-
