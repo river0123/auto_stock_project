@@ -34,6 +34,7 @@ class Kiwoom(QAxWidget):
         self.account_stock_dict = {}
         self.not_account_stock_dict = {}
         self.portfolio_stock_dict = {}
+        self.jango_dict = {}
         ##########################
 
         ##### 종목 분석용
@@ -379,7 +380,7 @@ class Kiwoom(QAxWidget):
         종목 분석 실행용 함수
         :return:
         '''
-        code_list = self.get_code_list_by_market("10")
+        code_list = self.get_code_list_by_market("0")
         print("코스닥 갯수 %s" % len(code_list))
 
         for idx, code in enumerate(code_list):
@@ -534,3 +535,31 @@ class Kiwoom(QAxWidget):
             self.portfolio_stock_dict[sCode].update({"저가": k})
 
             print(self.portfolio_stock_dict[sCode])
+
+            # 계좌잔고 평가내역에 있고 오늘 산 잔고에는 없을 경우
+            if sCode in self.account_stock_dict.keys() and sCode not in self.jango_dict.keys():
+                print("%s %s" % ("신규 매도를 한다", sCode))
+
+            # 오늘 산 잔고에 있을 경우
+            elif sCode in self.jango_dict.keys():
+                print("%s %s" % ("신규 매도를 한다2", sCode))
+
+            # 등락율이 2.0% 이상이고 오늘 산 잔고에 없을 경우
+            elif d > 2.0 and sCode not in self.jango_dict:
+                print("%s %s" % ("신규 매수를 한다", sCode) )
+
+            not_meme_list = list(self.not_account_stock_dict)
+            for order_num in not_meme_list:
+                code = self.not_account_stock_dict[order_num]["종목코드"]
+                meme_price = self.not_account_stock_dict[order_num]["주문가격"]
+                not_quantity = self.not_account_stock_dict[order_num]["미체결수량"]
+                meme_gubun = self.not_account_stock_dict[order_num]["주문구분"]
+
+                if meme_gubun == "매수" and not_quantity > 0 and e > meme_price:
+                    print("%s %s" % ("매수를 취소한다", sCode))
+
+                elif not_quantity == 0:
+                    del self.not_account_stock_dict[order_num]
+
+
+
