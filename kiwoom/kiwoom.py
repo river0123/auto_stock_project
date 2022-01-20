@@ -1,4 +1,5 @@
 import os
+import sys
 
 from PyQt5.QAxContainer import *
 from PyQt5.QtCore import *
@@ -77,6 +78,7 @@ class Kiwoom(QAxWidget):
     def event_slots(self):
         self.OnEventConnect.connect(self.login_slot)
         self.OnReceiveTrData.connect(self.trdata_slot)
+        self.OnReceiveMsg.connect(self.msg_slot)
 
     def real_event_slots(self):
         self.OnReceiveRealData.connect(self.realdata_slot)
@@ -488,6 +490,16 @@ class Kiwoom(QAxWidget):
             elif value == "4":
                 print("3시 30분 장 종료")
 
+                for code in self.portfolio_stock_dict.keys():
+                    self.dynamicCall("SetRealRemove(String, String)",self.portfolio_stock_dict[code]['스크린번호'], code)
+
+                QTest.qWait(5000)
+
+                self.file_delete()
+                self.calculator_fnc()
+
+                sys.exit()
+
         elif sRealType == '주식체결':
             a = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['체결시간']) #HHMMSS
             b = self.dynamicCall("GetCommRealData(QString, int)", sCode, self.realType.REALTYPE[sRealType]['현재가']) # +(-)2500
@@ -557,11 +569,39 @@ class Kiwoom(QAxWidget):
 
             # 오늘 산 잔고에 있을 경우
             elif sCode in self.jango_dict.keys():
-                print("%s %s" % ("신규 매도를 한다2", sCode))
+                jd = self.jango_dict[sCode]
+                meme_rate = (b - jd['매입단가']) / jd['매입단가'] * 100
+
+                if jd['주문가능수량'] > 0 and (meme_rate > 5 or meme_rate < -5):
+                    order_success = self.dynamicCall(
+                        "SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)",
+                        ['신규매도', self.portfolio_stock_dict[sCode]['주문용스크린번호'], self.account_num, 2, sCode, jd['주문가능수량'],
+                         0, self.realType.SENDTYPE['거래구분']['시장가'], ""]
+                   )
+
+                    if order_success == 0:
+                        self.logging.logger.debug("매도주문 전달 성공")
+                    else:
+                        self.logging.logger.debug("매도주문 전달 실패")
+
 
             # 등락율이 2.0% 이상이고 오늘 산 잔고에 없을 경우
             elif d > 2.0 and sCode not in self.jango_dict:
-                print("%s %s" % ("신규 매수를 한다", sCode) )
+                print("%s %s" % ("신규 매수를 한다", sCode))
+
+                result = (self.use_money * 0.1) / e
+                quantity = int(result)
+
+                order_success = self.dynamicCall(
+                    "SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)",
+                    ['신규매수', self.portfolio_stock_dict[sCode]['주문용스크린번호'], self.account_num, 1, sCode, quantity, e,
+                    self.realType.SENDTYPE['거래구분']['지정가'], ""]
+                )
+
+                if order_success == 0:
+                    self.logging.logger.debug("매수주문 전달 성공")
+                else:
+                    self.logging.logger.debug("매수주문 전달 실패")
 
             not_meme_list = list(self.not_account_stock_dict)
             for order_num in not_meme_list:
@@ -571,7 +611,16 @@ class Kiwoom(QAxWidget):
                 order_gubun = self.not_account_stock_dict[order_num]["주문구분"]
 
                 if order_gubun == "매수" and not_quantity > 0 and e > meme_price:
-                    print("%s %s" % ("매수를 취소한다", sCode))
+                    order_success = self.dynamicCall(
+                        "SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)",
+                        ['매수취소', self.portfolio_stock_dict[sCode]['주문용스크린번호'], self.account_num, 3, code, 0, 0,
+                         self.realType.SENDTYPE['거래구분']['지정가'], order_num]
+                    )
+
+                    if order_success == 0:
+                        self.logging.logger.debug("매수취소 전달 성공")
+                    else:
+                        self.logging.logger.debug("매수취소 전달 실패")
 
                 elif not_quantity == 0:
                     del self.not_account_stock_dict[order_num]
@@ -701,8 +750,13 @@ class Kiwoom(QAxWidget):
                 del self.jango_dict[sCode]
                 self.dynamicCall("SetRealRemove(QString, QString)",self.portfolio_stock_dict[sCode]['스크린번호'], sCode)
 
+    # 송수신 메시지 get
+    def msg_slot(self, sScrNo, sRQName, sTrCode, msg):
+        print("스크린: %s, 요청이름: %s, tr코드: %s --- %s" % (sScrNo, sRQName, sTrCode, msg))
 
-
-
+    # 파일삭제
+    def file_delete(self):
+        if os.path.isfile("files/condition_stock.txt"):
+            os.remove("files/condition_stock.txt")
 
 
