@@ -58,7 +58,7 @@ class Kiwoom(QAxWidget):
         self.detail_account_mystock() # 계좌평가 잔고내역 요청
         self.not_concluded_account() # 미체결 요청
 
-        # self.calculator_fnc() # 종목 분석용, 임시용으로 실행행
+        self.calculator_fnc() # 종목 분석용, 임시용으로 실행행
 
         self.read_code() # 저장된 종목들을 불러온다.
         self.screen_number_setting() # 스크린번호를 할당
@@ -462,7 +462,7 @@ class Kiwoom(QAxWidget):
 
             if code in self.portfolio_stock_dict.keys():
                 self.portfolio_stock_dictp[code].update({"스크린번호" : str(self.screen_real_stock)})
-                self.portfolio_stock_dictp[code].update({"주문용 스크린번호": str(self.screen_meme_stock)})
+                self.portfolio_stock_dictp[code].update({"주문용스크린번호": str(self.screen_meme_stock)})
 
             elif code not in self.portfolio_stock_dict.keys():
                 self.portfolio_stock_dict.update({code: {"스크린번호": str(self.screen_real_stock), "주문용 스크린번호" : str(self.screen_meme_stock)}})
@@ -539,7 +539,21 @@ class Kiwoom(QAxWidget):
 
             # 계좌잔고 평가내역에 있고 오늘 산 잔고에는 없을 경우
             if sCode in self.account_stock_dict.keys() and sCode not in self.jango_dict.keys():
-                print("%s %s" % ("신규 매도를 한다", sCode))
+
+                asd = self.account_stock_dict[sCode]
+                meme_rate = (b - asd['매입가'] / asd['매입가'] * 100)
+
+                if asd['매입가능수량'] > 0 and (meme_rate > 5 or meme_rate < -5):
+                    order_success = self.dynamicCall("SendOrder(QString, QString, QString, int, QString, int, int, QString, QString)",
+                                 "신규매도", self.portfolio_stock_dict[sCode]['주문용스크린번호'], self.account_num, 2,
+                                 sCode, asd['매매가능수량'], 0, self.realType.SENDTYPE['거래구분']['시장가'], "")
+
+                    if order_success == 0:
+                        print("매도주문 전달 성공")
+                        del self.account_stock_dict[sCode]
+
+                    else:
+                        print("매도주문 전달 실패")
 
             # 오늘 산 잔고에 있을 경우
             elif sCode in self.jango_dict.keys():
@@ -570,3 +584,5 @@ class Kiwoom(QAxWidget):
 
         elif int(sGubun) == "1":
             print("잔고")
+
+
