@@ -759,4 +759,3 @@ class Kiwoom(QAxWidget):
         if os.path.isfile("files/condition_stock.txt"):
             os.remove("files/condition_stock.txt")
 
-
